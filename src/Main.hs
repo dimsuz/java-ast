@@ -2,14 +2,20 @@ import System.IO
 import Text.Parsec hiding (token)
 import Text.Parsec.String
 
-data InputElement = Whitespace | C Comment | T Token | Unknown
+data InputElement = Whitespace | C Comment | T Token | Unknown String
                     deriving (Eq,Ord,Show)
 data Comment = EndOfLineComment (Maybe String) | TraditionalComment (Maybe String)
                deriving (Eq,Ord,Show)
-type Token = String
+data Token = Keyword String
+               deriving (Eq,Ord,Show)
 
 inputElement :: Parser InputElement
-inputElement = whitespace <|> comment <|> token
+inputElement = whitespace <|> comment <|> token <|> unknown
+
+unknown :: Parser InputElement
+unknown = do
+  result <- many1 (noneOf "\n")
+  return $ Unknown result
 
 whitespace :: Parser InputElement
 whitespace = do
@@ -33,8 +39,20 @@ multilineComment = do
 
 token :: Parser InputElement
 token = do
-  result <- many1 (noneOf "\n")
-  return $ T result
+  result <- keyword
+  return $ T (Keyword result)
+
+keyword :: Parser String
+keyword = choice $ map (\k -> try $ string k) keywords
+          where keywords = ["abstract" ,"continue" ,"for" ,"new" ,"switch"
+                           ,"assert" ,"default" ,"if" ,"package" ,"synchronized"
+                           ,"boolean" ,"do" ,"goto" ,"private" ,"this" ,"break"
+                           ,"double" ,"implements" ,"protected" ,"throw" ,"byte"
+                           ,"else" ,"import" ,"public" ,"throws" ,"case" ,"enum"
+                           ,"instanceof" ,"return" ,"transient" ,"catch" ,"extends"
+                           ,"int" ,"short" ,"try" ,"char" ,"final" ,"interface"
+                           ,"static" ,"void" ,"class" ,"finally" ,"long" ,"strictfp"
+                           ,"volatile" ,"const" ,"float" ,"native" ,"super" ,"while"]
 
 eol :: Parser String
 eol =  try (string "\n\r")
@@ -64,7 +82,11 @@ isComment elem = case elem of
   C _ -> True
   otherwise -> False
 
+isKeyword elem = case elem of
+  T (Keyword _) -> True
+  otherwise -> False
+
 main = do
   contents <- readFile "/home/dima/projects/treto/TretoAndroid/app/src/main/java/ru/treto/tile/NewItemsManager.java"
   let parsed = parseJava contents
-  prettyPrint $ filterResult isComment parsed
+  prettyPrint $ filterResult isKeyword parsed
