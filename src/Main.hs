@@ -6,7 +6,10 @@ data InputElement = Whitespace | C Comment | T Token | Unknown String
                     deriving (Eq,Ord,Show)
 data Comment = EndOfLineComment (Maybe String) | TraditionalComment (Maybe String)
                deriving (Eq,Ord,Show)
-data Token = Keyword String
+data Token = Keyword String | Literal Literal
+               deriving (Eq,Ord,Show)
+-- FIXME implement support for other literals
+data Literal = Null | Boolean Bool
                deriving (Eq,Ord,Show)
 
 inputElement :: Parser InputElement
@@ -38,21 +41,35 @@ multilineComment = do
   return $ C (TraditionalComment (Just result))
 
 token :: Parser InputElement
-token = do
-  result <- keyword
-  return $ T (Keyword result)
+token = keyword <|> literal
 
-keyword :: Parser String
-keyword = choice $ map (\k -> try $ string k) keywords
-          where keywords = ["abstract" ,"continue" ,"for" ,"new" ,"switch"
-                           ,"assert" ,"default" ,"if" ,"package" ,"synchronized"
-                           ,"boolean" ,"do" ,"goto" ,"private" ,"this" ,"break"
-                           ,"double" ,"implements" ,"protected" ,"throw" ,"byte"
-                           ,"else" ,"import" ,"public" ,"throws" ,"case" ,"enum"
-                           ,"instanceof" ,"return" ,"transient" ,"catch" ,"extends"
-                           ,"int" ,"short" ,"try" ,"char" ,"final" ,"interface"
-                           ,"static" ,"void" ,"class" ,"finally" ,"long" ,"strictfp"
-                           ,"volatile" ,"const" ,"float" ,"native" ,"super" ,"while"]
+keyword :: Parser InputElement
+keyword = do
+  result <- choice $ map (\k -> try $ string k) keywords
+  return $ T (Keyword result)
+     where keywords = ["abstract" ,"continue" ,"for" ,"new" ,"switch"
+                            ,"assert" ,"default" ,"if" ,"package" ,"synchronized"
+                            ,"boolean" ,"do" ,"goto" ,"private" ,"this" ,"break"
+                            ,"double" ,"implements" ,"protected" ,"throw" ,"byte"
+                            ,"else" ,"import" ,"public" ,"throws" ,"case" ,"enum"
+                            ,"instanceof" ,"return" ,"transient" ,"catch" ,"extends"
+                            ,"int" ,"short" ,"try" ,"char" ,"final" ,"interface"
+                            ,"static" ,"void" ,"class" ,"finally" ,"long" ,"strictfp"
+                            ,"volatile" ,"const" ,"float" ,"native" ,"super" ,"while"]
+
+literal :: Parser InputElement
+literal = do
+  result <- nullLiteral <|> booleanLiteral
+  return $ T (Literal result)
+
+nullLiteral :: Parser Literal
+nullLiteral = (try $ string "null") >> return Null
+
+booleanLiteral :: Parser Literal
+booleanLiteral = do
+  result <- ((try  $ string ("true" :: String)) <|> (try $ string ("false" :: String)))
+  return $ if result == "true" then (Boolean True) else (Boolean False)
+
 
 eol :: Parser String
 eol =  try (string "\n\r")
@@ -84,6 +101,10 @@ isComment elem = case elem of
 
 isKeyword elem = case elem of
   T (Keyword _) -> True
+  otherwise -> False
+
+isLiteral elem = case elem of
+  T (Literal _) -> True
   otherwise -> False
 
 main = do
