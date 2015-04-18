@@ -12,7 +12,7 @@ data Token = Keyword String | Literal Literal | Separator String | Operator Oper
              Identifier String
            deriving (Eq,Ord,Show)
 -- FIXME implement support for other literals
-data Literal = Null | Boolean Bool
+data Literal = Null | Boolean Bool | StringLiteral String
                deriving (Eq,Ord,Show)
 data Operator = LT | GT | EQ | NEQ | LTEQ | GTEQ | AND | OR | INC | DEC |
                 NOT | ADD | SUB | MUL | DIV | BITAND | BITOR | BITXOR |
@@ -101,7 +101,7 @@ javaDigit = digit
 
 literal :: Parser InputElement
 literal = do
-  result <- nullLiteral <|> booleanLiteral
+  result <- nullLiteral <|> booleanLiteral <|> stringLiteral
   return $ T (Literal result)
 
 nullLiteral :: Parser Literal
@@ -112,6 +112,26 @@ booleanLiteral = do
   result <- ((try  $ string ("true" :: String)) <|> (try $ string ("false" :: String)))
   return $ if result == "true" then (Boolean True) else (Boolean False)
 
+-- escape, nonEscape, character, literal functions are taken from this SO answer
+-- http://stackoverflow.com/a/24106749/258848
+stringEscape :: Parser String
+stringEscape = do
+    d <- char '\\'
+    c <- oneOf "\\\"0nrvtbf" -- all the characters which can be escaped
+    return [d, c]
+
+stringNonEscape :: Parser Char
+stringNonEscape = noneOf "\\\"\0\n\r\v\t\b\f"
+
+stringCharacter :: Parser String
+stringCharacter = fmap return stringNonEscape <|> stringEscape
+
+stringLiteral :: Parser Literal
+stringLiteral = do
+    char '"'
+    strings <- many stringCharacter
+    char '"'
+    return $ StringLiteral (concat strings)
 
 eol :: Parser String
 eol =  try (string "\n\r")
