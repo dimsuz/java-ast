@@ -8,8 +8,9 @@ data InputElement = Whitespace | C Comment | T Token | Unknown String
                     deriving (Eq,Ord,Show)
 data Comment = EndOfLineComment (Maybe String) | TraditionalComment (Maybe String)
                deriving (Eq,Ord,Show)
-data Token = Keyword String | Literal Literal | Separator Char | Operator Operator
-               deriving (Eq,Ord,Show)
+data Token = Keyword String | Literal Literal | Separator String | Operator Operator |
+             Identifier String
+           deriving (Eq,Ord,Show)
 -- FIXME implement support for other literals
 data Literal = Null | Boolean Bool
                deriving (Eq,Ord,Show)
@@ -26,7 +27,7 @@ inputElement = whitespace <|> separator <|> comment <|> token <|> unknown
 
 unknown :: Parser InputElement
 unknown = do
-  result <- many1 $ noneOf "\n (){}[];,."
+  result <- many1 $ noneOf "\n (){}[];,.@:"
   return $ Unknown result
 
 whitespace :: Parser InputElement
@@ -36,7 +37,8 @@ whitespace = do
 
 separator :: Parser InputElement
 separator = do
-  result <- oneOf "(){}[];,."
+  result <- choice ([ try (string "..."),
+                     try (string "::") ] ++ (map (\c -> string (c:[])) "(){}[];,.@"))
   return $ T (Separator result)
 
 comment :: Parser InputElement
@@ -55,7 +57,7 @@ multilineComment = do
   return $ C (TraditionalComment (Just result))
 
 token :: Parser InputElement
-token = keyword <|> literal <|> operator
+token = keyword <|> literal <|> operator <|> identifier
 
 keyword :: Parser InputElement
 keyword = do
@@ -85,6 +87,17 @@ operator = do
              (ASSIGNXOR,"^="), (ASSIGNLSHIFT,"<<="), (ASSIGNRSHIFT,">>="), (ASSIGNRSHIFTZF,">>>=")]
            sortedOperators = sortBy (\(_,s1) (_,s2) -> compare (length s2) (length s1)) operators
 
+identifier :: Parser InputElement
+identifier = do
+  start <- javaLetter
+  rest <- many (javaLetter <|> javaDigit)
+  return $ T (Identifier (start : rest))
+
+javaLetter :: Parser Char
+javaLetter = oneOf $ ['a'..'z'] ++ ['A'..'Z'] ++ "_$"
+
+javaDigit :: Parser Char
+javaDigit = digit
 
 literal :: Parser InputElement
 literal = do
@@ -136,7 +149,12 @@ isLiteral elem = case elem of
   T (Literal _) -> True
   otherwise -> False
 
+isUnknown elem = case elem of
+  Unknown _ -> True
+  otherwise -> False
+
 main = do
   contents <- readFile "/home/dima/projects/treto/TretoAndroid/app/src/main/java/ru/treto/tile/NewItemsManager.java"
   let parsed = parseJava contents
-  prettyPrint $ filterResult isKeyword parsed
+  prettyPrint $ filterResult isUnknown parsed
+  --prettyPrint $ parsed
