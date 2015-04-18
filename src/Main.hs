@@ -1,29 +1,43 @@
 import System.IO
 import Text.Parsec hiding (token)
 import Text.Parsec.String
+import Prelude hiding(LT,GT,EQ)
+import Data.List (sortBy)
 
 data InputElement = Whitespace | C Comment | T Token | Unknown String
                     deriving (Eq,Ord,Show)
 data Comment = EndOfLineComment (Maybe String) | TraditionalComment (Maybe String)
                deriving (Eq,Ord,Show)
-data Token = Keyword String | Literal Literal
+data Token = Keyword String | Literal Literal | Separator Char | Operator Operator
                deriving (Eq,Ord,Show)
 -- FIXME implement support for other literals
 data Literal = Null | Boolean Bool
                deriving (Eq,Ord,Show)
+data Operator = LT | GT | EQ | NEQ | LTEQ | GTEQ | AND | OR | INC | DEC |
+                NOT | ADD | SUB | MUL | DIV | BITAND | BITOR | BITXOR |
+                BITCOMPL | MODDIV | LSHIFT | RSHIFT | RSHIFTZF |
+                CONDTHEN | CONDELSE | ASSIGN | ASSIGNADD | ASSIGNSUB |
+                ASSIGNMUL | ASSIGNDIV | ASSIGNAND | ASSIGNOR | ASSIGNMODDIV |
+                ASSIGNXOR | ASSIGNLSHIFT | ASSIGNRSHIFT | ASSIGNRSHIFTZF
+              deriving (Eq,Ord,Show)
 
 inputElement :: Parser InputElement
-inputElement = whitespace <|> comment <|> token <|> unknown
+inputElement = whitespace <|> separator <|> comment <|> token <|> unknown
 
 unknown :: Parser InputElement
 unknown = do
-  result <- many1 (noneOf "\n")
+  result <- many1 $ noneOf "\n (){}[];,."
   return $ Unknown result
 
 whitespace :: Parser InputElement
 whitespace = do
   result <- many1 space <|> eol
   return $ Whitespace
+
+separator :: Parser InputElement
+separator = do
+  result <- oneOf "(){}[];,."
+  return $ T (Separator result)
 
 comment :: Parser InputElement
 comment = simpleComment <|> multilineComment
@@ -41,7 +55,7 @@ multilineComment = do
   return $ C (TraditionalComment (Just result))
 
 token :: Parser InputElement
-token = keyword <|> literal
+token = keyword <|> literal <|> operator
 
 keyword :: Parser InputElement
 keyword = do
@@ -56,6 +70,21 @@ keyword = do
                             ,"int" ,"short" ,"try" ,"char" ,"final" ,"interface"
                             ,"static" ,"void" ,"class" ,"finally" ,"long" ,"strictfp"
                             ,"volatile" ,"const" ,"float" ,"native" ,"super" ,"while"]
+
+operator :: Parser InputElement
+operator = do
+  result <- choice $ map (\(op,s) -> (try $ string s) >> return op) sortedOperators
+  return $ T (Operator result)
+     where operators = [
+             (LT,"<"), (GT,">"), (EQ,"=="), (NEQ,"!="), (LTEQ,"<="), (GTEQ,">="), (AND,"&&"),
+             (OR,"||"), (INC,"++"), (DEC,"--"), (NOT,"!"), (ADD,"+"), (SUB,"-"), (MUL,"*"),
+             (DIV,"/"), (BITAND,"&"), (BITOR,"|"), (BITXOR,"^"), (BITCOMPL,"~"),
+             (MODDIV,"%"), (LSHIFT,"<<"), (RSHIFT,">>"), (RSHIFTZF,">>>"),
+             (CONDTHEN,"?"), (CONDELSE,":"), (ASSIGN,"="), (ASSIGNADD,"+="), (ASSIGNSUB,"-="),
+             (ASSIGNMUL,"*="), (ASSIGNDIV,"/="), (ASSIGNAND,"&="), (ASSIGNOR,"|="), (ASSIGNMODDIV,"%="),
+             (ASSIGNXOR,"^="), (ASSIGNLSHIFT,"<<="), (ASSIGNRSHIFT,">>="), (ASSIGNRSHIFTZF,">>>=")]
+           sortedOperators = sortBy (\(_,s1) (_,s2) -> compare (length s2) (length s1)) operators
+
 
 literal :: Parser InputElement
 literal = do
