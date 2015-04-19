@@ -179,12 +179,18 @@ integerLiteral = do
 
 -- not supporting _ for now
 decimalLiteral :: Parser String
-decimalLiteral = zeroIntLiteral <|> (many1 $ oneOf ['1'..'9'])
+decimalLiteral = zeroIntLiteral <|> nonZeroIntLiteral
 
 zeroIntLiteral :: Parser String
 zeroIntLiteral = do
   char '0'
   return "0"
+
+nonZeroIntLiteral :: Parser String
+nonZeroIntLiteral = do
+  first <- oneOf ['1'..'9']
+  rest <- many digit
+  return $ first:rest
 
 hexLiteral :: Parser String
 hexLiteral = parserZero
