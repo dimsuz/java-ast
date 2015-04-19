@@ -12,7 +12,7 @@ data Token = Keyword String | Literal Literal | Separator String | Operator Oper
              Identifier String
            deriving (Eq,Ord,Show)
 -- FIXME implement support for other literals
-data Literal = Null | Boolean Bool | StringLiteral String
+data Literal = Null | Boolean Bool | StringLiteral String | Character Char | IntLiteral String
                deriving (Eq,Ord,Show)
 data Operator = LT | GT | EQ | NEQ | LTEQ | GTEQ | AND | OR | INC | DEC |
                 NOT | ADD | SUB | MUL | DIV | BITAND | BITOR | BITXOR |
@@ -101,7 +101,7 @@ javaDigit = digit
 
 literal :: Parser InputElement
 literal = do
-  result <- nullLiteral <|> booleanLiteral <|> stringLiteral
+  result <- nullLiteral <|> booleanLiteral <|> stringLiteral <|> charLiteral <|> numericLiteral
   return $ T (Literal result)
 
 nullLiteral :: Parser Literal
@@ -112,19 +112,38 @@ booleanLiteral = do
   result <- ((try  $ string ("true" :: String)) <|> (try $ string ("false" :: String)))
   return $ if result == "true" then (Boolean True) else (Boolean False)
 
+escapes :: Parser Char
+escapes = oneOf "\\\"0nrvtbf" -- all the characters which can be escaped
+
+charNonEscape :: Parser Char
+charNonEscape = noneOf "\\\"\0\n\r\v\t\b\f"
+
 -- escape, nonEscape, character, literal functions are taken from this SO answer
 -- http://stackoverflow.com/a/24106749/258848
 stringEscape :: Parser String
 stringEscape = do
     d <- char '\\'
-    c <- oneOf "\\\"0nrvtbf" -- all the characters which can be escaped
+    c <- escapes
     return [d, c]
 
-stringNonEscape :: Parser Char
-stringNonEscape = noneOf "\\\"\0\n\r\v\t\b\f"
+charEscape :: Parser Char
+charEscape = do
+  char '\\'
+  c <- escapes
+  return $ case c of
+    '\\' -> '\\'
+    '"' -> '"'
+    '0' -> '\0'
+    'n' -> '\n'
+    'r' -> '\r'
+    'v' -> '\v'
+    't' -> '\t'
+    'b' -> '\b'
+    'f' -> '\f'
+
 
 stringCharacter :: Parser String
-stringCharacter = fmap return stringNonEscape <|> stringEscape
+stringCharacter = fmap return charNonEscape <|> stringEscape
 
 stringLiteral :: Parser Literal
 stringLiteral = do
@@ -132,6 +151,53 @@ stringLiteral = do
     strings <- many stringCharacter
     char '"'
     return $ StringLiteral (concat strings)
+
+charLiteral :: Parser Literal
+charLiteral = do
+  char '\''
+  result <- charEscape <|> charNonEscape
+  char '\''
+  return $ Character result
+
+-- it is important to prevent parsing of '0389' to something like 'octliteral 03,intliteral 89',
+-- it should instead be invalid input, so make parse of int literals succeed only when sure
+-- that when parsed no digit left unconsumed by the parser
+numericLiteral :: Parser Literal
+numericLiteral = try (do
+  result <- integerLiteral
+  notFollowedBy digit
+  return result)
+
+integerLiteral :: Parser Literal
+integerLiteral = do
+  result <- binaryLiteral <|> octLiteral <|> decimalLiteral <|>  hexLiteral
+  -- suffix can be applied to all types of int literals, accroding to spec
+  suffix <- optionMaybe $ oneOf "lL"
+  return $ case suffix of
+    Just s -> IntLiteral (result ++ [s])
+    _ -> IntLiteral result
+
+-- not supporting _ for now
+decimalLiteral :: Parser String
+decimalLiteral = zeroIntLiteral <|> (many1 $ oneOf ['1'..'9'])
+
+zeroIntLiteral :: Parser String
+zeroIntLiteral = do
+  char '0'
+  return "0"
+
+hexLiteral :: Parser String
+hexLiteral = parserZero
+
+-- not supporting _ for now
+octLiteral :: Parser String
+octLiteral = try $ do
+  char '0'
+  rest <- many1 octDigit
+  return $ '0':rest
+
+binaryLiteral :: Parser String
+binaryLiteral = parserZero
 
 eol :: Parser String
 eol =  try (string "\n\r")
