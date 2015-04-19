@@ -249,5 +249,6 @@ main = do
   -- contents <- readFile "/home/dima/projects/treto/TretoAndroid/app/src/main/java/ru/treto/tile/NewItemsManager.java"
   contents <- readFile "/home/dima/projects/treto/TretoAndroid/app/src/main/java/ru/treto/tile/util/Utils.java"
   let parsed = parseJava contents
-  prettyPrint $ filterResult isLiteral parsed
-  --prettyPrint $ parsed
+  prettyPrint $ parsed
+  -- prettyPrint $ filterResult isLiteral parsed
+  prettyPrint $ filterResult isUnknown parsed
