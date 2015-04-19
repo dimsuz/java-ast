@@ -240,7 +240,8 @@ isUnknown elem = case elem of
   otherwise -> False
 
 main = do
-  contents <- readFile "/home/dima/projects/treto/TretoAndroid/app/src/main/java/ru/treto/tile/NewItemsManager.java"
+  -- contents <- readFile "/home/dima/projects/treto/TretoAndroid/app/src/main/java/ru/treto/tile/NewItemsManager.java"
+  contents <- readFile "/home/dima/projects/treto/TretoAndroid/app/src/main/java/ru/treto/tile/util/Utils.java"
   let parsed = parseJava contents
-  prettyPrint $ filterResult isUnknown parsed
+  prettyPrint $ filterResult isLiteral parsed
   --prettyPrint $ parsed
