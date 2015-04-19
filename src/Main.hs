@@ -23,7 +23,7 @@ data Operator = LT | GT | EQ | NEQ | LTEQ | GTEQ | AND | OR | INC | DEC |
               deriving (Eq,Ord,Show)
 
 inputElement :: Parser InputElement
-inputElement = whitespace <|> separator <|> comment <|> token <|> unknown
+inputElement = whitespace <|> comment <|> token <|> unknown
 
 unknown :: Parser InputElement
 unknown = do
@@ -57,7 +57,7 @@ multilineComment = do
   return $ C (TraditionalComment (Just result))
 
 token :: Parser InputElement
-token = keyword <|> literal <|> operator <|> identifier
+token = keyword <|> identifier <|> literal <|> separator <|> operator
 
 keyword :: Parser InputElement
 keyword = do
