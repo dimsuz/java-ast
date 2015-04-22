@@ -4,7 +4,7 @@ module LexicalParser( InputElement(..),
                       Literal(..),
                       Operator(..),
                       LexicalParser.ParseError,
-                      parseJava ) where
+                      elements) where
 
 import Text.Parsec hiding (token)
 import Text.Parsec.String
@@ -224,5 +224,3 @@ eol =  try (string "\n\r")
 
 elements :: Parser [InputElement]
 elements = many inputElement
-
-parseJava input = parse elements "unknown" input

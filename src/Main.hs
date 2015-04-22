@@ -1,4 +1,5 @@
 import System.IO
+import SyntaxParser
 import LexicalParser
 
 type ParseResult = Either ParseError [InputElement]
